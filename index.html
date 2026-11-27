@@ -3011,64 +3011,219 @@ setInterval(function() {
 })();
 </script>
 <script>
-// 🏪 29. Clean White-Label Shop Setup + '⚙️ दुकान सेटिंग' बटन (बिना किसी रिपीट लूप के)
+// 🏪 29. Mobile Shop White-Label Customizer + 4-Plan Subscription (CHEN SINGH • 8770878509)
 (function() {
-  function getShopInfo() {
-    return {
-      name: localStorage.getItem("wl_shop_name") || "MY MOBILE STORE",
-      owner: localStorage.getItem("wl_owner_name") || "Shop Owner",
-      phone: localStorage.getItem("wl_shop_phone") || "",
-      addr: localStorage.getItem("wl_shop_addr") || ""
+  // 1) यदि अभी तक नई दुकान सेट नहीं हुई है, तो निजी नाम/नंबर और Google Sheet URL हटाकर न्यूट्रल रखना
+  var defaultShop = {
+    name: "MOBILE SHOWROOM PRO",
+    owner: "Shop Owner",
+    phone: "0000000000",
+    address: "India",
+    cloudUrl: ""
+  };
+  var shop = JSON.parse(localStorage.getItem("ms_whitelabel_v2") || "null");
+  if (!shop) {
+    shop = defaultShop;
+    localStorage.setItem("ms_whitelabel_v2", JSON.stringify(shop));
+  }
+  window.AJAY_CLOUD_URL = (shop.cloudUrl && shop.cloudUrl.startsWith("http")) ? shop.cloudUrl.trim() : "";
+
+  function replaceBrandText(str) {
+    if (typeof str !== "string") return str;
+    var out = str;
+    if (shop.name.toUpperCase() !== "AJAY MOBILE AND ACCESSORIES") {
+      out = out.replace(/AJAY MOBILE AND ACCESSORIES/gi, shop.name);
+      if (shop.name.toUpperCase().indexOf("AJAY MOBILE") === -1) {
+        out = out.replace(/AJAY MOBILE/gi, shop.name);
+      }
+    }
+    return out
+      .replace(/Ajay Thakur/gi, shop.owner)
+      .replace(/8770878509/g, shop.phone)
+      .replace(/Indore\s*\(M\.P\.\)|Indore/gi, shop.address);
+  }
+
+  // 2) रंगीन इमेज बिल (Canvas) और WhatsApp मैसेज में नए दुकानदार का नाम/पता/नंबर छपवाना
+  var origFill = CanvasRenderingContext2D.prototype.fillText;
+  CanvasRenderingContext2D.prototype.fillText = function(txt, x, y, maxW) {
+    var out = replaceBrandText(String(txt));
+    return maxW !== undefined ? origFill.call(this, out, x, y, maxW) : origFill.call(this, out, x, y);
+  };
+
+  var origEnc = window.encodeURIComponent;
+  window.encodeURIComponent = function(str) {
+    var s = String(str || "");
+    if (s.indexOf("CHEN SINGH") !== -1 || s.indexOf("Activation Key") !== -1) return origEnc(s);
+    return origEnc(replaceBrandText(s));
+  };
+
+  // 3) पेज के हेडर व प्रोपराइटर में नया नाम/नंबर दिखाना (सब्सक्रिप्शन बॉक्स को छोड़कर)
+  setInterval(function() {
+    document.title = shop.name + " - Mobile Showroom Pro";
+    document.querySelectorAll("h1, h2, div, span, b, p").forEach(function(el) {
+      if (el.closest("#chenSubLockModal")) return;
+      if (el.children.length === 0 && el.innerText && el.dataset.wlDone !== shop.name) {
+        var t = el.innerText;
+        if (t.includes("AJAY MOBILE") || t.includes("Ajay Thakur") || t.includes("8770878509")) {
+          el.innerText = replaceBrandText(t);
+          el.dataset.wlDone = shop.name;
+        }
+      }
+    });
+
+    // निजी EMI बॉक्स छिपाकर कस्टम EMI बार लगाना
+    var tabs = document.querySelector(".tabs");
+    if (tabs && !document.getElementById("msCustomEmiBar")) {
+      Array.from(document.querySelectorAll("div")).forEach(function(d) {
+        if (d.innerText && d.innerText.includes("Home Credit") && d.innerText.includes("Bandhan Bank") && d.offsetHeight < 450) {
+          d.style.display = "none";
+        }
+      });
+      var emis = JSON.parse(localStorage.getItem("ms_custom_emis_v2") || "[]");
+      var bar = document.createElement("div");
+      bar.id = "msCustomEmiBar";
+      bar.style.cssText = "background:#141418;border:1px solid #facc15;border-radius:10px;padding:10px;margin-bottom:12px;color:#fff;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;";
+      bar.innerHTML = '<span><b>📅 मासिक EMI / किराया:</b> ' + (emis.length ? emis.map(function(e, i) {
+        return '<span style="background:#1e293b;padding:3px 8px;border-radius:5px;margin-left:6px;border:1px solid #38bdf8;">' + e.t + ' (' + e.d + ' ता.) ₹' + e.a + ' <b onclick="var a=JSON.parse(localStorage.getItem(\'ms_custom_emis_v2\')||\'[]\');a.splice(' + i + ',1);localStorage.setItem(\'ms_custom_emis_v2\',JSON.stringify(a));location.reload();" style="color:#f87171;cursor:pointer;">✖</b></span>';
+      }).join("") : 'कोई किश्त नहीं') + '</span>' +
+      '<button type="button" onclick="var t=prompt(\'EMI/किराया नाम:\');if(!t)return;var d=prompt(\'तारीख (1-31):\',\'5\')||\'5\';var a=+prompt(\'रकम ₹:\',\'0\')||0;if(a>0){var l=JSON.parse(localStorage.getItem(\'ms_custom_emis_v2\')||\'[]\');l.push({t:t,d:d,a:a});localStorage.setItem(\'ms_custom_emis_v2\',JSON.stringify(l));location.reload();}" style="background:#2563eb;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-weight:bold;cursor:pointer;">➕ EMI / किराया जोड़ें</button>';
+      tabs.parentNode.insertBefore(bar, tabs);
+    }
+  }, 500);
+
+  // 4) ऊपर दाईं तरफ '⚙️ दुकान सेटिंग' और '💳 प्लान' बटन लगाना
+  function openShopSettingsForm() {
+    var old = document.getElementById("msShopModal");
+    if (old) old.remove();
+    var m = document.createElement("div");
+    m.id = "msShopModal";
+    m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:999999;display:flex;justify-content:center;align-items:center;padding:12px;font-family:sans-serif;";
+    m.innerHTML =
+      '<div style="background:#141418;border:2px solid #facc15;border-radius:14px;padding:18px;width:100%;max-width:450px;color:#fff;">' +
+        '<h3 style="margin-top:0;color:#fde047;">⚙️ दुकान सेटिंग (Mobile Shop Setup)</h3>' +
+        '<div style="display:flex;flex-direction:column;gap:8px;font-size:13px;">' +
+          '<label>🏪 दुकान का नाम:<input id="msN" value="' + shop.name + '" style="width:100%;padding:8px;margin-top:3px;border-radius:6px;border:1px solid #38bdf8;background:#09090b;color:#fff;"></label>' +
+          '<label>👤 मालिक का नाम:<input id="msO" value="' + shop.owner + '" style="width:100%;padding:8px;margin-top:3px;border-radius:6px;border:1px solid #38bdf8;background:#09090b;color:#fff;"></label>' +
+          '<label>📞 दुकान WhatsApp नंबर (10 अंक):<input type="number" id="msP" value="' + shop.phone + '" style="width:100%;padding:8px;margin-top:3px;border-radius:6px;border:1px solid #38bdf8;background:#09090b;color:#fff;"></label>' +
+          '<label>📍 पता व शहर:<input id="msA" value="' + shop.address + '" style="width:100%;padding:8px;margin-top:3px;border-radius:6px;border:1px solid #38bdf8;background:#09090b;color:#fff;"></label>' +
+          '<label>☁️ Google Sheet Web App URL:<input id="msC" placeholder="https://google.com..." value="' + (shop.cloudUrl || "") + '" style="width:100%;padding:8px;margin-top:3px;border-radius:6px;border:1px solid #34d399;background:#09090b;color:#4ade80;"></label>' +
+          '<button type="button" id="msSaveBtn" style="background:#16a34a;color:#fff;border:none;padding:10px;border-radius:8px;font-weight:bold;font-size:14px;cursor:pointer;margin-top:4px;">✅ सेव करें और लागू करें</button>' +
+          '<button type="button" id="msWipeBtn" style="background:#991b1b;color:#fde047;border:1px solid #f87171;padding:8px;border-radius:8px;font-weight:bold;font-size:12px;cursor:pointer;">🧹 पुराना डेटा साफ़ कर नई दुकान शुरू करें</button>' +
+          '<button type="button" onclick="document.getElementById(\'msShopModal\').remove()" style="background:#475569;color:#fff;border:none;padding:8px;border-radius:8px;cursor:pointer;">✖ बंद करें</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(m);
+
+    document.getElementById("msSaveBtn").onclick = function() {
+      var updated = {
+        name: document.getElementById("msN").value.trim() || "MOBILE SHOWROOM PRO",
+        owner: document.getElementById("msO").value.trim() || "Shop Owner",
+        phone: document.getElementById("msP").value.trim() || "0000000000",
+        address: document.getElementById("msA").value.trim() || "India",
+        cloudUrl: document.getElementById("msC").value.trim()
+      };
+      localStorage.setItem("ms_whitelabel_v2", JSON.stringify(updated));
+      alert("✅ दुकान की नई सेटिंग सेव हो गई है!");
+      location.reload();
+    };
+
+    document.getElementById("msWipeBtn").onclick = function() {
+      if (!confirm("⚠️ क्या आप सारा पुराना डेटा साफ़ करके नई दुकान के लिए बिल्कुल खाली करना चाहते हैं?")) return;
+      var keepSub = localStorage.getItem("chen_sub_exp_v2");
+      var keepShop = localStorage.getItem("ms_whitelabel_v2");
+      localStorage.clear();
+      if (keepSub) localStorage.setItem("chen_sub_exp_v2", keepSub);
+      if (keepShop) localStorage.setItem("ms_whitelabel_v2", keepShop);
+      alert("🧹 पूरा पुराना डेटा साफ़ हो गया है!");
+      location.reload();
     };
   }
 
-  window.openShopProfileEditor = function() {
-    var cur = getShopInfo();
-    var n = prompt("1/4 दुकान का नाम लिखें:", cur.name);
-    if (n === null) return;
-    var o = prompt("2/4 प्रोपराइटर (मालिक) का नाम लिखें:", cur.owner);
-    if (o === null) return;
-    var p = prompt("3/4 दुकान का मोबाइल नंबर लिखें:", cur.phone);
-    if (p === null) return;
-    var a = prompt("4/4 दुकान का पता (Address) लिखें:", cur.addr);
-    if (a === null) return;
-
-    localStorage.setItem("wl_shop_name", n.trim() || "MY MOBILE STORE");
-    localStorage.setItem("wl_owner_name", o.trim() || "Shop Owner");
-    localStorage.setItem("wl_shop_phone", p.trim());
-    localStorage.setItem("wl_shop_addr", a.trim());
-    applyShopHeader();
-    alert("✅ दुकान की जानकारी सेव हो गई है!");
+  // 5) 2-Day Free Trial + 4-Plan Subscription System (CHEN SINGH • 8770878509)
+  var PLAN_KEYS = {
+    "AJAY-1M-299":   { days: 30,  label: "1 महीना (₹299)" },
+    "AJAY-3M-799":   { days: 90,  label: "3 महीने (₹799)" },
+    "AJAY-6M-1499":  { days: 180, label: "6 महीने (₹1,499)" },
+    "AJAY-12M-2699": { days: 365, label: "12 महीने / 1 साल (₹2,699)" }
   };
 
-  function applyShopHeader() {
-    var info = getShopInfo();
-    var h1 = document.querySelector(".poster h1");
-    if (h1) h1.innerText = "📱 " + info.name.toUpperCase() + " 📱";
+  var expTs = Number(localStorage.getItem("chen_sub_exp_v2") || 0);
+  if (!expTs) {
+    expTs = Date.now() + (48 * 60 * 60 * 1000);
+    localStorage.setItem("chen_sub_exp_v2", String(expTs));
+  }
+  var daysLeft = Math.max(0, Math.ceil((expTs - Date.now()) / (86400 * 1000)));
 
-    var pill = document.querySelector(".poster .owner-pill");
-    if (pill) {
-      pill.innerHTML = '👤 प्रोपराइटर: <span style="color:#facc15;">' + info.owner + '</span>' +
-        (info.phone ? ' | 📞 <span style="color:#4ade80;">' + info.phone + '</span>' : '') +
-        (info.addr ? '<br><small style="color:#cbd5e1;">📍 ' + info.addr + '</small>' : '');
-    }
+  function openChenPlanModal(canClose) {
+    var old = document.getElementById("chenSubLockModal");
+    if (old) old.remove();
+    var m = document.createElement("div");
+    m.id = "chenSubLockModal";
+    m.style.cssText = "position:fixed;inset:0;background:rgba(9,9,11,0.97);z-index:9999999;display:flex;justify-content:center;align-items:center;padding:12px;font-family:sans-serif;overflow-y:auto;";
+    m.innerHTML =
+      '<div style="background:#141418;border:2px solid #facc15;border-radius:16px;padding:20px;width:100%;max-width:460px;text-align:center;color:#fff;">' +
+        '<div style="font-size:36px;">🔐</div>' +
+        '<h2 style="margin:6px 0;color:#fde047;font-size:19px;">' + (canClose ? ('⏳ फ्री ट्रायल / प्लान (' + daysLeft + ' दिन बाकी)') : '🔒 आपका 2-दिन का ट्रायल पूरा हो गया है!') + '</h2>' +
+        '<p style="color:#cbd5e1;font-size:13px;margin:0 0 12px 0;">2 दिन के ट्रायल के बाद आगे जारी रखने के लिए नीचे दिए नंबर पर संपर्क करें और अपना प्लान एक्टिवेट करवाएं:</p>' +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">' +
+          '<div style="background:#1e293b;border:1px solid #38bdf8;border-radius:8px;padding:8px;"><div style="font-size:12px;color:#38bdf8;">1 महीना (30 दिन)</div><b style="font-size:20px;">₹299</b></div>' +
+          '<div style="background:#1e293b;border:1px solid #a78bfa;border-radius:8px;padding:8px;"><div style="font-size:12px;color:#c4b5fd;">3 महीने (90 दिन)</div><b style="font-size:20px;">₹799</b></div>' +
+          '<div style="background:#1e293b;border:1px solid #34d399;border-radius:8px;padding:8px;"><div style="font-size:12px;color:#34d399;">6 महीने (180 दिन)</div><b style="font-size:20px;">₹1,499</b></div>' +
+          '<div style="background:#31102f;border:2px solid #facc15;border-radius:8px;padding:8px;"><div style="font-size:12px;color:#fde047;">12 महीने (1 साल) ⭐</div><b style="font-size:20px;color:#fde047;">₹2,699</b></div>' +
+        '</div>' +
+        '<div style="background:#0f172a;border:2px solid #4ade80;border-radius:10px;padding:10px;margin-bottom:12px;">' +
+          '<div style="font-size:12px;color:#94a3b8;">2 दिन के ट्रायल के बाद आगे जारी रखने के लिए संपर्क करें:</div>' +
+          '<div style="font-size:19px;font-weight:900;color:#fde047;margin-top:3px;">👤 CHEN SINGH</div>' +
+          '<div style="font-size:19px;font-weight:900;color:#4ade80;margin-top:2px;">📞 8770878509</div>' +
+          '<div style="display:flex;gap:8px;margin-top:8px;">' +
+            '<a href="tel:8770878509" style="flex:1;background:#2563eb;color:#fff;text-decoration:none;padding:9px;border-radius:8px;font-weight:bold;font-size:13px;">📞 Call करें</a>' +
+            '<a href="https://wa.me' + encodeURIComponent("नमस्ते CHEN SINGH जी, मुझे मोबाइल शोरूम सॉफ्टवेयर का प्लान (₹299/₹799/₹1499/₹2699) आगे जारी रखने के लिए Activation Key चाहिए।") + '" target="_blank" style="flex:1;background:#16a34a;color:#fff;text-decoration:none;padding:9px;border-radius:8px;font-weight:bold;font-size:13px;">📲 WhatsApp करें</a>' +
+          '</div>' +
+        '</div>' +
+        '<input type="text" id="chenKeyInp" autocomplete="off" placeholder="🔑 यहाँ Activation Key डालें..." style="width:100%;padding:10px;border-radius:8px;border:2px solid #facc15;background:#09090b;color:#fde047;font-size:15px;font-weight:bold;text-align:center;text-transform:uppercase;margin-bottom:8px;">' +
+        '<button type="button" id="chenActBtn" style="width:100%;background:#d97706;color:#fff;border:1px solid #fde047;padding:10px;border-radius:8px;font-weight:bold;font-size:15px;cursor:pointer;margin-bottom:8px;">🔓 सॉफ्टवेयर एक्टिवेट करें</button>' +
+        (canClose ? '<button type="button" onclick="document.getElementById(\'chenSubLockModal\').remove()" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;">अभी बंद करें (' + daysLeft + ' दिन बाकी) →</button>' : '') +
+      '</div>';
+    document.body.appendChild(m);
 
-    if (pill && !document.getElementById("btnShopSettingsWL")) {
-      var btn = document.createElement("button");
-      btn.id = "btnShopSettingsWL";
-      btn.type = "button";
-      btn.innerText = "⚙️ दुकान सेटिंग / नाम बदलें";
-      btn.style.cssText = "margin-top:8px;background:#1e293b;color:#fde047;border:1px solid #facc15;padding:5px 12px;border-radius:16px;font-weight:bold;font-size:12px;cursor:pointer;";
-      btn.onclick = window.openShopProfileEditor;
-      pill.parentNode.appendChild(btn);
-    }
+    document.getElementById("chenActBtn").onclick = function() {
+      var k = (document.getElementById("chenKeyInp").value || "").trim().toUpperCase();
+      var p = PLAN_KEYS[k];
+      if (!p) return alert("❌ गलत Activation Key! कृपया CHEN SINGH (8770878509) से संपर्क करें।");
+      var base = Math.max(Date.now(), Number(localStorage.getItem("chen_sub_exp_v2") || 0));
+      localStorage.setItem("chen_sub_exp_v2", String(base + p.days * 86400 * 1000));
+      alert("🎉 बधाई हो! आपका '" + p.label + "' एक्टिवेट हो गया है!");
+      location.reload();
+    };
   }
 
-  if (!localStorage.getItem("wl_shop_name")) {
-    setTimeout(window.openShopProfileEditor, 600);
+  // ऊपर दाईं तरफ दोनों बटन लगाना + Netlify बैज हटाना
+  setInterval(function() {
+    document.querySelectorAll("a, div, iframe").forEach(function(el) {
+      if (el.innerText && el.innerText.trim() === "Powered by Netlify") el.style.display = "none";
+    });
+    if (!document.getElementById("msTopSetBtn")) {
+      var b1 = document.createElement("button");
+      b1.type = "button";
+      b1.id = "msTopSetBtn";
+      b1.innerText = "⚙️ दुकान सेटिंग";
+      b1.style.cssText = "position:fixed;top:10px;right:10px;z-index:99999;background:#1e293b;color:#fde047;border:2px solid #facc15;padding:9px 14px;border-radius:9px;font-weight:bold;font-size:13px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.7);";
+      b1.onclick = openShopSettingsForm;
+      document.body.appendChild(b1);
+    }
+    if (!document.getElementById("msTopPlanBtn")) {
+      var b2 = document.createElement("button");
+      b2.type = "button";
+      b2.id = "msTopPlanBtn";
+      b2.innerText = "💳 प्लान: " + daysLeft + " दिन बाकी";
+      b2.style.cssText = "position:fixed;top:54px;right:10px;z-index:99999;background:#b91c1c;color:#fde047;border:2px solid #facc15;padding:9px 14px;border-radius:9px;font-weight:bold;font-size:13px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.7);";
+      b2.onclick = function() { openChenPlanModal(true); };
+      document.body.appendChild(b2);
+    }
+  }, 500);
+
+  if (Date.now() >= expTs) {
+    setTimeout(function() { openChenPlanModal(false); }, 600);
   }
-  applyShopHeader();
-  setInterval(applyShopHeader, 800);
 })();
 </script>
 <script>
