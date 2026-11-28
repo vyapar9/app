@@ -3919,5 +3919,282 @@ setInterval(function() {
   }, true);
 })();
 </script>
+ <script>
+// 🚀 36. 100% Working: कस्टम 'नया पैराग्राफ / फ़ोल्डर' + 'रिपेयरिंग मोबाइल डिलीवरी'
+(function() {
+  var FOLDERS_KEY = "ajay_custom_tx_folders_v1";
+  function getFolders() { return JSON.parse(localStorage.getItem(FOLDERS_KEY) || "[]"); }
+  function saveFolders(arr) { localStorage.setItem(FOLDERS_KEY, JSON.stringify(arr)); }
+
+  function setupAjayTxUpgrades() {
+    var xMode = document.getElementById("x-mode");
+    var saveBtn = Array.from(document.querySelectorAll("button")).find(function(b) {
+      return (b.innerText || "").includes("एंट्री सेव करें");
+    });
+    if (!xMode || !saveBtn || xMode.dataset.ajayUpgraded === "1") return;
+    xMode.dataset.ajayUpgraded = "1";
+
+    // Dropdown ko update karne ka function
+    function refreshModeList(selectVal) {
+      Array.from(xMode.querySelectorAll(".ajay-u-opt")).forEach(function(o) { o.remove(); });
+
+      // 1) Aapke banaye hue saare custom folders
+      getFolders().forEach(function(fn) {
+        var o = document.createElement("option");
+        o.className = "ajay-u-opt";
+        o.value = "CF::" + fn;
+        o.text = "📂 " + fn + " (स्टॉक से घटेगा)";
+        xMode.appendChild(o);
+      });
+
+      // 2) Repairing Mobile Delivery
+      var oRep = document.createElement("option");
+      oRep.className = "ajay-u-opt";
+      oRep.value = "REP_DEL";
+      oRep.text = "🛠️ रिपेयरिंग मोबाइल डिलीवरी (जॉब से हटेगा)";
+      xMode.appendChild(oRep);
+
+      // 3) Naya Paragraph / Folder banane ka option
+      var oNew = document.createElement("option");
+      oNew.className = "ajay-u-opt";
+      oNew.value = "NEW_CF";
+      oNew.text = "➕ नया पैराग्राफ / फ़ोल्डर बनाएं...";
+      xMode.appendChild(oNew);
+
+      if (selectVal) xMode.value = selectVal;
+    }
+
+    // Naye input boxes banana
+    var cfStock = document.createElement("select");
+    cfStock.id = "ajayCfStock";
+    cfStock.style.cssText = "display:none; border:2px solid #38bdf8; color:#fde047; font-weight:bold;";
+
+    var cfQty = document.createElement("input");
+    cfQty.id = "ajayCfQty";
+    cfQty.type = "number";
+    cfQty.value = "1";
+    cfQty.min = "1";
+    cfQty.placeholder = "मात्रा (Qty)";
+    cfQty.style.cssText = "display:none; border:2px solid #38bdf8;";
+
+    var repSel = document.createElement("select");
+    repSel.id = "ajayRepSel";
+    repSel.style.cssText = "display:none; border:2px solid #a855f7; color:#e9d5ff; font-weight:bold;";
+
+    var delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.innerText = "🗑️ हटाएं";
+    delBtn.style.cssText = "display:none; background:#991b1b; color:#fff; border:1px solid #ef4444; padding:8px; border-radius:6px; font-weight:bold; cursor:pointer;";
+
+    xMode.parentNode.insertBefore(cfStock, xMode.nextSibling);
+    xMode.parentNode.insertBefore(cfQty, cfStock.nextSibling);
+    xMode.parentNode.insertBefore(repSel, cfQty.nextSibling);
+    xMode.parentNode.insertBefore(delBtn, repSel.nextSibling);
+
+    function loadStockList() {
+      var h = '<option value="">-- स्टॉक से चुनें (या नीचे विवरण लिखें) --</option>';
+      if (typeof db !== "undefined" && Array.isArray(db.acc)) {
+        db.acc.forEach(function(it, i) {
+          h += '<option value="' + i + '" data-p="' + it.s + '">' + it.n + ' (स्टॉक: ' + it.q + ' | ₹' + it.s + ')</option>';
+        });
+      }
+      cfStock.innerHTML = h;
+      cfQty.value = "1";
+    }
+
+    cfStock.onchange = function() {
+      var opt = cfStock.options[cfStock.selectedIndex];
+      var p = opt ? Number(opt.getAttribute("data-p") || 0) : 0;
+      var q = Math.max(1, Number(cfQty.value || 1));
+      if (p > 0) document.getElementById("x-amt").value = p * q;
+    };
+    cfQty.oninput = cfStock.onchange;
+
+    delBtn.onclick = function() {
+      if (!xMode.value.startsWith("CF::")) return;
+      var fn = xMode.value.slice(4);
+      if (!confirm("'" + fn + "' को हटाएं?")) return;
+      saveFolders(getFolders().filter(function(x) { return x !== fn; }));
+      refreshModeList("acc_sale");
+      if (typeof toggleTxMode === "function") toggleTxMode();
+      onModeChange();
+    };
+
+    function loadRepJobs() {
+      var jobs = (typeof db !== "undefined" && Array.isArray(db.rep)) ? db.rep : [];
+      repSel.innerHTML = '<option value="">-- रिपेयरिंग मोबाइल चुनें (' + jobs.length + ') --</option>';
+      jobs.forEach(function(r, i) {
+        repSel.innerHTML += '<option value="' + i + '">🛠️ ' + r.c + ' | ' + r.p + ' (' + r.i + ') — ₹' + r.cost + '</option>';
+      });
+    }
+
+    repSel.onchange = function() {
+      if (repSel.value === "") return;
+      var r = db.rep[Number(repSel.value)];
+      if (!r) return;
+      document.getElementById("x-amt").value = r.cost || "";
+      if (document.getElementById("saleCustNameInput")) document.getElementById("saleCustNameInput").value = r.c || "";
+      if (document.getElementById("saleCustPhoneInput")) document.getElementById("saleCustPhoneInput").value = r.m || "";
+    };
+
+    function onModeChange() {
+      var v = xMode.value;
+      if (v === "NEW_CF") {
+        var nm = prompt("📁 नए पैराग्राफ / फ़ोल्डर का नाम लिखें (जैसे: Folder, Software, Toys):");
+        if (nm && nm.trim()) {
+          var clean = nm.trim();
+          var arr = getFolders();
+          if (!arr.includes(clean)) { arr.push(clean); saveFolders(arr); }
+          refreshModeList("CF::" + clean);
+        } else {
+          xMode.value = "acc_sale";
+          if (typeof toggleTxMode === "function") toggleTxMode();
+        }
+        v = xMode.value;
+      }
+
+      var isCf = v.startsWith("CF::");
+      var isRep = (v === "REP_DEL");
+      var isSh = (v === "SH_PHONE_SALE");
+
+      cfStock.style.display = isCf ? "block" : "none";
+      cfQty.style.display = isCf ? "block" : "none";
+      delBtn.style.display = isCf ? "inline-block" : "none";
+      repSel.style.display = isRep ? "block" : "none";
+
+      if (isCf || isRep || isSh) {
+        document.getElementById("x-cat").style.display = "none";
+        document.getElementById("x-acc-item").style.display = "none";
+        document.getElementById("x-qty").style.display = "none";
+        var moreBtn = document.getElementById("ajayAddMoreInlineBtn");
+        if (moreBtn) moreBtn.style.display = "none";
+      }
+
+      var noteEl = document.getElementById("x-note");
+      if (isCf) {
+        var fn = v.slice(4);
+        noteEl.style.display = "block";
+        noteEl.placeholder = "📝 [" + fn + "] विवरण लिखें";
+        loadStockList();
+      } else if (isRep || isSh) {
+        noteEl.style.display = "none";
+        if (isRep) loadRepJobs();
+      }
+    }
+
+    refreshModeList();
+    xMode.addEventListener("change", onModeChange);
+
+    // Save button click par kaam karna
+    saveBtn.addEventListener("click", function(e) {
+      var v = xMode.value;
+      if (!v.startsWith("CF::") && v !== "REP_DEL") return;
+
+      e.stopImmediatePropagation();
+      e.preventDefault();
+
+      var amt = Number(document.getElementById("x-amt").value || 0);
+      var dt = document.getElementById("x-date").value || new Date().toISOString().slice(0, 10);
+      var cname = (document.getElementById("saleCustNameInput") ? document.getElementById("saleCustNameInput").value.trim() : "") || "ग्राहक";
+      var cphone = (document.getElementById("saleCustPhoneInput") ? document.getElementById("saleCustPhoneInput").value.trim() : "") || "-";
+      var due = (document.getElementById("saleUdhaarInput") ? Number(document.getElementById("saleUdhaarInput").value || 0) : 0);
+
+      if (amt <= 0) return alert("⚠️ कृपया रकम ₹ डालें!");
+
+      if (v.startsWith("CF::")) {
+        var fn = v.slice(4);
+        var q = Math.max(1, Number(cfQty.value || 1));
+        var nTxt = document.getElementById("x-note").value.trim();
+        var desc = "";
+
+        if (cfStock.value !== "") {
+          var idx = Number(cfStock.value);
+          var st = db.acc[idx];
+          if (!st || Number(st.q) < q) return alert("⚠️ स्टॉक में केवल " + (st ? st.q : 0) + " पीस हैं!");
+          db.acc[idx].q = Number(st.q) - q;
+          desc = "[" + fn + "] " + st.n + (nTxt ? " (" + nTxt + ")" : "");
+        } else {
+          if (!nTxt) return alert("⚠️ कृपया स्टॉक से चुनें या विवरण लिखें!");
+          desc = "[" + fn + "] " + nTxt;
+        }
+
+        db.tx.push({ t: "income", cname: cname, cphone: cphone, note: desc, qty: q, amt: amt, d: dt });
+        save();
+        if (due > 0 && typeof ajayUdhaarLedger !== "undefined") {
+          ajayUdhaarLedger.unshift({ id: Date.now(), date: new Date().toLocaleDateString("en-IN"), name: cname, phone: cphone, item: desc, total: amt, due: due });
+          if (typeof saveUdhaarLedger === "function") saveUdhaarLedger();
+        }
+        if (cphone.replace(/\D/g, "").length >= 10 && typeof ajayDirectImageBill === "function") {
+          ajayDirectImageBill("SALE", cname, cphone, desc + " (Qty: " + q + ")", fn, amt, due);
+        }
+        document.getElementById("x-note").value = "";
+        loadStockList();
+      } else if (v === "REP_DEL") {
+        if (repSel.value === "") return alert("⚠️ कृपया रिपेयरिंग मोबाइल चुनें!");
+        var rIdx = Number(repSel.value);
+        var job = db.rep[rIdx];
+        if (!job) return alert("❌ जॉब कार्ड नहीं मिला!");
+
+        var fName = (cname !== "ग्राहक") ? cname : (job.c || "ग्राहक");
+        var fPhone = (cphone !== "-") ? cphone : (job.m || "-");
+        var rDesc = "🛠️ रिपेयरिंग: " + job.p + " (" + job.i + ")";
+
+        db.tx.push({ t: "income", cname: fName, cphone: fPhone, note: rDesc, qty: 1, amt: amt, d: dt });
+        db.rep.splice(rIdx, 1);
+        save();
+
+        if (due > 0 && typeof ajayUdhaarLedger !== "undefined") {
+          ajayUdhaarLedger.unshift({ id: Date.now(), date: new Date().toLocaleDateString("en-IN"), name: fName, phone: fPhone, item: rDesc, total: amt, due: due });
+          if (typeof saveUdhaarLedger === "function") saveUdhaarLedger();
+        }
+        if (fPhone.replace(/\D/g, "").length >= 10 && typeof ajayDirectImageBill === "function") {        }
+
+        db.tx.push({ t: "income", cname: cname, cphone: cphone, note: desc, qty: q, amt: amt, d: dt });
+        save();
+        if (due > 0 && typeof ajayUdhaarLedger !== "undefined") {
+          ajayUdhaarLedger.unshift({ id: Date.now(), date: new Date().toLocaleDateString("en-IN"), name: cname, phone: cphone, item: desc, total: amt, due: due });
+          if (typeof saveUdhaarLedger === "function") saveUdhaarLedger();
+        }
+        if (cphone.replace(/\D/g, "").length >= 10 && typeof ajayDirectImageBill === "function") {
+          ajayDirectImageBill("SALE", cname, cphone, desc + " (Qty: " + q + ")", fn, amt, due);
+        }
+        document.getElementById("x-note").value = "";
+        loadStockList();
+      } else if (v === "REP_DEL") {
+        if (repSel.value === "") return alert("⚠️ कृपया रिपेयरिंग मोबाइल चुनें!");
+        var rIdx = Number(repSel.value);
+        var job = db.rep[rIdx];
+        if (!job) return alert("❌ जॉब कार्ड नहीं मिला!");
+
+        var fName = (cname !== "ग्राहक") ? cname : (job.c || "ग्राहक");
+        var fPhone = (cphone !== "-") ? cphone : (job.m || "-");
+        var rDesc = "🛠️ रिपेयरिंग: " + job.p + " (" + job.i + ")";
+
+        db.tx.push({ t: "income", cname: fName, cphone: fPhone, note: rDesc, qty: 1, amt: amt, d: dt });
+        db.rep.splice(rIdx, 1);
+        save();
+
+        if (due > 0 && typeof ajayUdhaarLedger !== "undefined") {
+          ajayUdhaarLedger.unshift({ id: Date.now(), date: new Date().toLocaleDateString("en-IN"), name: fName, phone: fPhone, item: rDesc, total: amt, due: due });
+          if (typeof saveUdhaarLedger === "function") saveUdhaarLedger();
+        }
+        if (fPhone.replace(/\D/g, "").length >= 10 && typeof ajayDirectImageBill === "function") {
+          ajayDirectImageBill("REPAIR", fName, fPhone, job.p, job.i, amt, due);
+        }
+        loadRepJobs();
+      }
+
+      document.getElementById("x-amt").value = "";
+      if (document.getElementById("saleCustNameInput")) document.getElementById("saleCustNameInput").value = "";
+      if (document.getElementById("saleCustPhoneInput")) document.getElementById("saleCustPhoneInput").value = "";
+      if (document.getElementById("saleUdhaarInput")) document.getElementById("saleUdhaarInput").value = "";
+    }, true);
+  }
+
+  setInterval(setupAjayTxUpgrades, 400);
+})();
+</script>
+
+
 </body>
 </html>
